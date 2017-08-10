@@ -1,5 +1,6 @@
 # Generated files
-lib
+
+lib/
 package-lock.json
 
 # Logs
