@@ -78,7 +78,6 @@ class GraphInfo {
   }
 
   getCommonNeighbours(nodeId1, nodeId2) {
-    let count = 0;
     const neighbours1 = this.getNeighbours(nodeId1),
       neighbours2 = this.getNeighbours(nodeId2);
     let neighbours = new Set();
