@@ -90,7 +90,7 @@ describe('When using GraphInfo,', () => {
         source: 2,
         target: 3
       }
-    ]
+      ]
     };
 
     graphInfo = new Scan.GraphInfo(graph, {
