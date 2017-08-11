@@ -1,6 +1,6 @@
 import {
   Scan
-} from '../lib/library.js';
+} from '../src/index.js';
 import chai from 'chai';
 
 chai.expect();
@@ -21,12 +21,6 @@ function createGraph(totalNodes) {
   }
   return graph;
 }
-
-describe('When I run this code', () => {
-  it('should run this test', () => {
-    expect(true).to.be.equal(true);
-  });
-});
 
 describe('When I initialise NodeStatusContainer', () => {
   before(() => {
@@ -138,5 +132,97 @@ describe('When using GraphInfo,', () => {
     expect(graphInfo.isCore(1, 1.0, 3)).to.be.true;
     expect(graphInfo.isCore(1, 1.0, 2)).to.be.true;
     expect(graphInfo.isCore(1, 1.0, 1)).to.be.true;
+  });
+});
+
+describe('When using clustercontainer', () => {
+  it('should be empty', () => {
+    let clusterContainer = new Scan.ClusterContainer();
+
+    expect(clusterContainer.getHubs()).to.be.empty;
+    expect(clusterContainer.getOutliers()).to.be.empty;
+  });
+  it('should give correct cluster and node type after assigning', () => {
+    let clusterContainer = new Scan.ClusterContainer();
+    const HUB_ID = 1;
+    const OUTLIER_ID = 2;
+    const NODE_ID = 3;
+    const clusterId = clusterContainer.addNewCluster();
+
+    clusterContainer.addHub(HUB_ID);
+    clusterContainer.addOutlier(OUTLIER_ID);
+    clusterContainer.addToCluster(clusterId, NODE_ID);
+
+    expect(clusterContainer.getHubs()).to.have.same.members([HUB_ID]);
+    expect(clusterContainer.getOutliers()).to.have.same.members([OUTLIER_ID]);
+    expect(clusterContainer.getCluster(NODE_ID)).to.be.equal(clusterId);
+  });
+});
+
+describe('When using clustercontainer with graphinfo', () => {
+  it('should correctly identify hub', () => {
+    let clusterContainer = new Scan.ClusterContainer();
+    const cluster1 = clusterContainer.addNewCluster();
+    const cluster2 = clusterContainer.addNewCluster();
+
+    clusterContainer.addToCluster(cluster1, 2);
+    clusterContainer.addToCluster(cluster2, 3);
+
+    expect(graphInfo.isHub(1, clusterContainer)).to.be.true;
+  });
+});
+
+describe('When using original scan algorithm', () => {
+  before(() => {
+    graph = {
+      nodes: [],
+      edges: []
+    };
+    for (let i = 0; i < 14; ++i) {
+      graph.nodes.push({
+        id: i
+      });
+    };
+    const addEdge = (graph, source, target) => {
+      const nextEdgeId = graph.edges.length;
+
+      graph.edges.push({
+        id: nextEdgeId,
+        source: source,
+        target: target
+      });
+    };
+
+    addEdge(graph, 0, 1);
+    addEdge(graph, 0, 4);
+    addEdge(graph, 0, 5);
+    addEdge(graph, 0, 6);
+    addEdge(graph, 1, 2);
+    addEdge(graph, 1, 5);
+    addEdge(graph, 2, 3);
+    addEdge(graph, 2, 5);
+    addEdge(graph, 3, 4);
+    addEdge(graph, 3, 5);
+    addEdge(graph, 3, 6);
+    addEdge(graph, 4, 5);
+    addEdge(graph, 4, 6);
+    addEdge(graph, 6, 7);
+    addEdge(graph, 6, 10);
+    addEdge(graph, 6, 11);
+    addEdge(graph, 7, 8);
+    addEdge(graph, 7, 11);
+    addEdge(graph, 7, 12);
+    addEdge(graph, 8, 9);
+    addEdge(graph, 8, 12);
+    addEdge(graph, 9, 10);
+    addEdge(graph, 9, 12);
+    addEdge(graph, 9, 13);
+    addEdge(graph, 10, 11);
+    addEdge(graph, 10, 12);
+  });
+  it('should cluster the graph correctly', () => {
+    let clusterResult = Scan.scanOriginal(graph, 0.67, 3);
+
+    console.log(clusterResult);
   });
 });
