@@ -1,3 +1,9 @@
 import Cat from './cat.js';
 import Dog from './dog.js';
-export { Dog, Cat };
+import * as Scan from './scan.js';
+
+export {
+  Dog,
+  Cat,
+  Scan
+};
