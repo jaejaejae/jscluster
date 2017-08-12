@@ -22,37 +22,6 @@ function createGraph(totalNodes) {
   return graph;
 }
 
-describe('When I initialise NodeStatusContainer', () => {
-  before(() => {
-    graph = createGraph(5);
-    allNodeIds = graph.nodes.map(node => node.id);
-  });
-  it('should put all nodes as unclassified', () => {
-    let nodeStatusContainer = new Scan.NodeStatusContainer(graph);
-
-    expect(nodeStatusContainer.hasNodeStatus(Scan.NODE_STATUS.UNCLASSIFIED)).to.be.equal(true);
-    for (let node of graph.nodes) {
-      expect(nodeStatusContainer.isStatus(node.id, Scan.NODE_STATUS.UNCLASSIFIED)).to.be.equal(true);
-    }
-    expect(nodeStatusContainer.getNodes(Scan.NODE_STATUS.UNCLASSIFIED)).to.have.same.members(allNodeIds);
-  });
-});
-
-describe('When node status is changed in NodeStatusContainer,', () => {
-  before(() => {
-    graph = createGraph(5);
-    allNodeIds = graph.nodes.map(node => node.id);
-  });
-  it('should remove the node from the old status', () => {
-    let nodeStatusContainer = new Scan.NodeStatusContainer(graph);
-    let nodeId = graph.nodes[0].id;
-
-    assert.isTrue(nodeStatusContainer.isStatus(nodeId, Scan.NODE_STATUS.UNCLASSIFIED));
-    nodeStatusContainer.setStatus(nodeId, Scan.NODE_STATUS.NONMEMBER);
-    expect(nodeStatusContainer.isStatus(nodeId, Scan.NODE_STATUS.NONMEMBER)).to.be.true;
-  });
-});
-
 describe('When using GraphInfo,', () => {
   before(() => {
     graph = {
@@ -172,7 +141,7 @@ describe('When using clustercontainer with graphinfo', () => {
   });
 });
 
-describe('When using original scan algorithm', () => {
+describe('When using original scan algorithm (SCAN++ eexample)', () => {
   before(() => {
     graph = {
       nodes: [],
@@ -194,35 +163,50 @@ describe('When using original scan algorithm', () => {
     };
 
     addEdge(graph, 0, 1);
-    addEdge(graph, 0, 4);
     addEdge(graph, 0, 5);
     addEdge(graph, 0, 6);
     addEdge(graph, 1, 2);
-    addEdge(graph, 1, 5);
+    addEdge(graph, 1, 6);
     addEdge(graph, 2, 3);
-    addEdge(graph, 2, 5);
+    addEdge(graph, 2, 6);
     addEdge(graph, 3, 4);
-    addEdge(graph, 3, 5);
-    addEdge(graph, 3, 6);
+    addEdge(graph, 3, 8);
+    addEdge(graph, 3, 12);
     addEdge(graph, 4, 5);
     addEdge(graph, 4, 6);
-    addEdge(graph, 6, 7);
-    addEdge(graph, 6, 10);
-    addEdge(graph, 6, 11);
+    addEdge(graph, 5, 6);
     addEdge(graph, 7, 8);
-    addEdge(graph, 7, 11);
+    addEdge(graph, 7, 9);
     addEdge(graph, 7, 12);
+    addEdge(graph, 7, 13);
     addEdge(graph, 8, 9);
-    addEdge(graph, 8, 12);
+    addEdge(graph, 8, 13);
     addEdge(graph, 9, 10);
-    addEdge(graph, 9, 12);
     addEdge(graph, 9, 13);
-    addEdge(graph, 10, 11);
-    addEdge(graph, 10, 12);
+    addEdge(graph, 10, 13);
+    addEdge(graph, 11, 13);
+    addEdge(graph, 12, 13);
   });
   it('should cluster the graph correctly', () => {
-    let clusterResult = Scan.scanOriginal(graph, 0.67, 3);
+    let clusterResult = Scan.scanOriginal(graph, 0.6, 3);
 
-    console.log(clusterResult);
+    expect(clusterResult.hubs).to.have.same.members([3]);
+    expect(clusterResult.outliers).to.have.same.members([11]);
+    expect(clusterResult.byClusters[0]).to.have.same.members([ 0, 2, 6, 1, 4, 5 ]);
+    expect(clusterResult.byClusters[1]).to.have.same.members([ 7, 9, 13, 8, 10, 12 ]);
+
+    for(let i = 0; i <= 6; ++i) {
+      if (i == 3) {
+        continue;
+      }
+      expect(clusterResult.byNodeIds[i]).to.be.equal(0);
+    }
+
+    for(let i = 7; i <= 13; ++i) {
+      if (i == 11) {
+        continue;
+      }
+      expect(clusterResult.byNodeIds[i]).to.be.equal(1);
+    }
   });
 });

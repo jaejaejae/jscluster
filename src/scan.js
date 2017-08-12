@@ -1,52 +1,3 @@
-const NODE_STATUS = {
-  UNCLASSIFIED: 'UNCLASSIFIED',
-  NONMEMBER: 'NONMEMBER'
-};
-
-class NodeStatusContainer {
-  constructor(graph) {
-    this._nodeStatus = {};
-    this._byStatuses = {};
-
-    for (let status of Object.keys(NODE_STATUS)) {
-      this._byStatuses[status] = new Set();
-    }
-
-    this.initNodeStatus(graph);
-  }
-
-  initNodeStatus(graph) {
-    for (let node of graph.nodes) {
-      this._nodeStatus[node.id] = NODE_STATUS.UNCLASSIFIED;
-      this._byStatuses[NODE_STATUS.UNCLASSIFIED].add(node.id);
-    }
-  }
-
-  hasNodeStatus(nodeStatus) {
-    return this._byStatuses[nodeStatus].size > 0;
-  }
-
-  setStatus(nodeId, nodeStatus) {
-    const previousStatus = this._nodeStatus[nodeId];
-
-    this._byStatuses[previousStatus].delete(nodeId);
-    this._byStatuses[nodeStatus].add(nodeId);
-    this._nodeStatus[nodeId] = nodeStatus;
-  }
-
-  getNode(nodeStatus) {
-    return this._byStatuses[nodeStatus].values().next().value;
-  }
-
-  getNodes(nodeStatus) {
-    return [...this._byStatuses[nodeStatus].values()];
-  }
-
-  isStatus(nodeId, status) {
-    return this._nodeStatus[nodeId] === status;
-  }
-}
-
 class GraphInfo {
   constructor(graph, setting) {
     this._nodeByIds = {};
@@ -117,10 +68,6 @@ class GraphInfo {
   }
 
   isCore(nodeId, epsilon, mu) {
-    console.log('isCore');
-    console.log(nodeId);
-    console.log(mu);
-    console.log(this.getEpsilonNeighbourhood(nodeId, epsilon));
     return this.getEpsilonNeighbourhood(nodeId, epsilon).size >= mu;
   }
 
@@ -132,7 +79,7 @@ class GraphInfo {
     if (!this.isCore(v, epsilon, mu)) {
       return [];
     }
-    return this.getEpsilonNeighbourhood(v);
+    return this.getEpsilonNeighbourhood(v, epsilon);
   }
 
   isHub(v, clusterContainer) {
@@ -142,11 +89,11 @@ class GraphInfo {
     for (let x of vertexStructure) {
       let clusterId = clusterContainer.getCluster(x);
 
-      if (clusterId) {
+      if (clusterId !== undefined) {
         clusterIds.add(clusterId);
       }
     }
-    return clusterIds;
+    return clusterIds.size > 1;
   }
 }
 
@@ -202,51 +149,72 @@ class ClusterContainer {
   getCluster(nodeId) {
     return this._byNodeIds[nodeId];
   }
+
+  getOutput() {
+    return {
+      hubs: this.getHubs(),
+      outliers: this.getOutliers(),
+      byClusters: this._byClusterIds,
+      byNodeIds: this._byNodeIds
+    };
+  }
 }
 
-/**
- * Implementing: Xu, Xiaowei, et al. 'Scan: a structural clustering
- * algorithm for networks.' Proceedings of the 13th ACM SIGKDD
- * international conference on Knowledge discovery and data mining. ACM, 2007.
- * @param {*} graph
- * @param {*} epsilon
- * @param {*} mu
- */
 const scanOriginal = (graph, epsilon, mu, setting) => {
-  let nodeStatus = new NodeStatusContainer(graph);
+  setting = setting === undefined ? {} : setting;
+
   let graphInfo = new GraphInfo(graph, setting);
+  let coreNodeIds = new Set(
+    graph.nodes
+    .filter(node => graphInfo.isCore(node.id, epsilon, mu))
+    .map(node => node.id));
+  let nonMemberNodes = new Set();
   let clusterContainer = new ClusterContainer();
 
-  while (nodeStatus.hasNodeStatus(NODE_STATUS.UNCLASSIFIED)) {
-    let nodeId = nodeStatus.getNode(NODE_STATUS.UNCLASSIFIED);
+  for (let node of graph.nodes) {
+    const v = node.id;
 
-    if (graphInfo.isCore(nodeId, epsilon, mu)) {
-      const newClusterId = clusterContainer.addNewCluster();
-      let nodeQueue = new Set(...graphInfo.getEpsilonNeighbourhood(nodeId));
+    if (clusterContainer.getCluster(v) !== undefined) {
+      continue;
+    }
 
-      while (nodeQueue.lengh > 0) {
-        const y = nodeQueue.values().next().value;
-        let reachableNodes = graphInfo.getDirectStructureReachable(y, epsilon, mu);
+    if (!coreNodeIds.has(v)) {
+      nonMemberNodes.add(v);
+      continue;
+    }
 
-        for (const x of reachableNodes) {
-          if (nodeStatus.isStatus(x, NODE_STATUS.UNCLASSIFIED) || nodeStatus.isStatus(x, NODE_STATUS.NONMEMBER)) {
-            clusterContainer.addToCluster(newClusterId, x);
-          }
-          if (nodeStatus.isStatus(x, NODE_STATUS.UNCLASSIFIED)) {
-            nodeQueue.add(x);
-          }
+    const newClusterId = clusterContainer.addNewCluster();
+
+    let nodeQueue = [...graphInfo.getEpsilonNeighbourhood(v, epsilon)];
+
+    while (nodeQueue.length > 0) {
+      let y = nodeQueue[0];
+
+      nodeQueue.shift();
+
+      let reachableNodeIds = graphInfo.getDirectStructureReachable(y, epsilon, mu);
+
+      for (let x of reachableNodeIds) {
+        if (clusterContainer.getCluster(x) !== undefined) {
+          continue;
+        }
+
+        clusterContainer.addToCluster(newClusterId, x);
+        if (nonMemberNodes.has(x)) {
+          nonMemberNodes.delete(x);
+        }
+        if (coreNodeIds.has(x)) {
+          nodeQueue.push(x);
         }
       }
-    } else {
-      nodeStatus.setStatus(nodeId, NODE_STATUS.NONMEMBER);
     }
   }
 
-  for (const nodeId of nodeStatus.getNodes(NODE_STATUS.NONMEMBER)) {
-    if (graphInfo.isHub(nodeId)) {
-      clusterContainer.addHub(nodeId);
+  for (let v of nonMemberNodes) {
+    if (graphInfo.isHub(v, clusterContainer)) {
+      clusterContainer.addHub(v);
     } else {
-      clusterContainer.addOutlier(nodeId);
+      clusterContainer.addOutlier(v);
     }
   }
 
@@ -255,7 +223,6 @@ const scanOriginal = (graph, epsilon, mu, setting) => {
 
 export {
   scanOriginal,
-  NODE_STATUS,
-  NodeStatusContainer,
-  GraphInfo
+  GraphInfo,
+  ClusterContainer
 };
